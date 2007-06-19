@@ -1,0 +1,12 @@
+0.01 - Thu Oct  6 01:35:32 UTC 2005
+    First version, based on RGS's Runops::Switch.
+
+0.02 - Sun Jun 17              2007
+    Patched from chromatic's for my own used.
+
+0.03 - Mon Jun 18              2007
+    Finished initial distribution.
+    Added functions:
+     - Runops::Trace->trace( TRACE, CODE )
+     - trace_code( CODE )
+     - checksum_code_path( CODE )

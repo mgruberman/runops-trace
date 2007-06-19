@@ -1,0 +1,24 @@
+#!perl
+use Runops::Trace qw( checksum_code_path trace_code );
+my %MD5;
+my %PATH;
+my $ODD;
+sub is_even { $_[0] % 2 == 0 ? 'even' : 'odd' }
+
+for my $num ( 0 .. 10 ) {
+    my $code = sub { is_even($num) };
+    my $md5  = checksum_code_path($code);
+    my $path = trace_code($code);
+
+    push @{ $MD5{$md5} },   $num;
+    push @{ $PATH{$path} }, $num;
+}
+
+print "Equivalent inputs:\n";
+for ( values %MD5 ) {
+    print '{' . join( ',', @$_ ) . "}\n";
+}
+
+use YAML 'Dump';
+print Dump( \%MD5, \%PATH );
+

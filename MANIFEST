@@ -1,0 +1,9 @@
+Changes
+eg/is-even
+lib/Runops/Trace.pm
+Makefile.PL
+MANIFEST
+META.yml			Module meta-data (added by MakeMaker)
+t/01compile.t
+t/02mapstart.t
+Trace.xs
