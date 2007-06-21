@@ -3,7 +3,7 @@ package Runops::Trace;
 use strict;
 use warnings;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
@@ -19,6 +19,7 @@ sub checksum_code_path {
     my $ops = '';
     _trace_function( sub { $ops .= pack 'J', $_[1] }, $f );
 
+    require Digest::MD5;
     return Digest::MD5::md5_hex($ops);
 }
 

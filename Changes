@@ -14,3 +14,6 @@
 0.04 - Thu Jun 21              2007
     Ought to build on threaded perls
     Traps die() now.
+
+0.05 - Thu Jun 21              2007
+    Actually require Digest::MD5
