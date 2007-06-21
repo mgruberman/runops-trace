@@ -10,3 +10,7 @@
      - Runops::Trace->trace( TRACE, CODE )
      - trace_code( CODE )
      - checksum_code_path( CODE )
+
+0.04 - Thu Jun 21              2007
+    Ought to build on threaded perls
+    Traps die() now.

@@ -3,7 +3,7 @@ package Runops::Trace;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
@@ -14,11 +14,12 @@ our %EXPORT_TAGS = ( 'all' => \@EXPORT_OK );
 
 sub checksum_code_path {
     my ($f) = @_;
-    require Digest::MD5;
-    my $ctx = Digest::MD5->new;
 
-    _trace_function( sub { $ctx->add( $_[1] ) }, $f );
-    return $ctx->hexdigest;
+    # Just stash the pointers.
+    my $ops = '';
+    _trace_function( sub { $ops .= pack 'J', $_[1] }, $f );
+
+    return Digest::MD5::md5_hex($ops);
 }
 
 sub trace_code {

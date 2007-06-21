@@ -9,13 +9,13 @@ int currently_being_traced = 0;
 SV * cached_tracer_rv = (SV*)NULL;
 
 void
-set_tracer( SV *tracer_rv ) {
+set_tracer( pTHX_ SV *tracer_rv ) {
     /* Validate tracer_rv */
     if ( ! SvROK( tracer_rv ) ) {
-        croak( "tracer_rv is a reference" );
+        croak( aTHX_ "tracer_rv is a reference" );
     }
     if ( ! SVt_PVCV == SvTYPE( SvRV( tracer_rv ) ) ) {
-        croak( "tracer_rv is a code reference" );
+        croak( aTHX_ "tracer_rv is a code reference" );
     }
 
     /* Initialize/set the tracing function */
@@ -47,7 +47,7 @@ int runops_trace(pTHX) {
       XPUSHs( sv_2mortal( newSVuv( PTR2UV( old_op ) ) ) );
       PUTBACK;
       
-      call_sv( cached_tracer_rv, G_VOID | G_DISCARD );
+      call_sv( cached_tracer_rv, G_VOID | G_DISCARD | G_EVAL | G_KEEPERR );
       SPAGAIN;
       FREETMPS;
       LEAVE;
@@ -75,11 +75,11 @@ _trace_function( tracer_rv, to_trace_rv)
     SV * to_trace_rv
   PROTOTYPE: $$
   CODE:
-    set_tracer( tracer_rv );
+    set_tracer( aTHX_ tracer_rv );
 
     /* Call the function to trace */
     currently_being_traced = 1;
-    call_sv( to_trace_rv, G_VOID | G_DISCARD );
+    call_sv( to_trace_rv, G_VOID | G_DISCARD | G_EVAL | G_KEEPERR );
     currently_being_traced = 0;
 
 void
@@ -87,7 +87,7 @@ enable_global_tracing(tracer_rv)
     SV * tracer_rv
   PROTOTYPE: $
   CODE:
-    set_tracer( tracer_rv );
+    set_tracer( aTHX_ tracer_rv );
     currently_being_traced = 1;
 
 void
