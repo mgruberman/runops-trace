@@ -17,3 +17,7 @@
 
 0.05 - Thu Jun 21              2007
     Actually require Digest::MD5
+
+0.06 - Sun Jun 24              2007
+    Pre-YAPC release
+    trace wasn't exportable, now it is.

@@ -8,7 +8,7 @@ OP * old_op;
 int currently_being_traced = 0;
 SV * cached_tracer_rv = (SV*)NULL;
 
-void
+static void
 set_tracer( pTHX_ SV *tracer_rv ) {
     /* Validate tracer_rv */
     if ( ! SvROK( tracer_rv ) ) {
@@ -29,6 +29,7 @@ set_tracer( pTHX_ SV *tracer_rv ) {
 
 int runops_trace(pTHX) {
   dSP;
+  SV* op_obj;
 
   while (PL_op) {
     old_op    = PL_op;
@@ -39,18 +40,14 @@ int runops_trace(pTHX) {
       currently_being_traced = 0;
 
       /* Hey ho, do that tracing callback */
-      ENTER;
-      SAVETMPS;
       SPAGAIN;
       PUSHMARK(SP);
       XPUSHs( sv_2mortal( newSVpv( PL_op_name[ old_op->op_type ], 0 ) ) );
       XPUSHs( sv_2mortal( newSVuv( PTR2UV( old_op ) ) ) );
       PUTBACK;
       
-      call_sv( cached_tracer_rv, G_VOID | G_DISCARD | G_EVAL | G_KEEPERR );
+      call_sv( cached_tracer_rv, G_VOID | G_DISCARD );
       SPAGAIN;
-      FREETMPS;
-      LEAVE;
 
       /* set up debugging again */
       PL_runops = runops_trace;

@@ -2,14 +2,15 @@ package Runops::Trace;
 
 use strict;
 use warnings;
+use Digest::MD5 'md5_hex';
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
 Runops::Trace->bootstrap($VERSION);
 
-our @EXPORT_OK = qw( trace_code checksum_code_path );
+our @EXPORT_OK = qw( trace_code checksum_code_path trace );
 our %EXPORT_TAGS = ( 'all' => \@EXPORT_OK );
 
 sub checksum_code_path {
@@ -19,8 +20,7 @@ sub checksum_code_path {
     my $ops = '';
     _trace_function( sub { $ops .= pack 'J', $_[1] }, $f );
 
-    require Digest::MD5;
-    return Digest::MD5::md5_hex($ops);
+    return md5_hex($ops);
 }
 
 sub trace_code {
