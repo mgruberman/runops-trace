@@ -5,7 +5,7 @@ use warnings;
 use Digest::MD5 ();
 use File::Spec  ();
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
