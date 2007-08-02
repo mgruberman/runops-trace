@@ -2,9 +2,10 @@ package Runops::Trace;
 
 use strict;
 use warnings;
-use Digest::MD5 'md5_hex';
+use Digest::MD5 ();
+use File::Spec  ();
 
-our $VERSION = '0.06';
+our $VERSION = '0.08';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
@@ -16,17 +17,22 @@ our %EXPORT_TAGS = ( 'all' => \@EXPORT_OK );
 sub checksum_code_path {
     my ($f) = @_;
 
-    # Just stash the pointers.
+    # Preallocate a 2**19 byte long string. See
+    # http://perlmonks.org/?node_id=630323
+    open my $nul, '<', File::Spec->devnull;
     my $ops = '';
-    _trace_function( sub { $ops .= pack 'J', $_[1] }, $f );
+    sysread $nul, $ops, 2**19, 0;
 
-    return md5_hex($ops);
+    # Just stash the pointers.
+    _trace_function( sub { $ops .= pack 'J', $_[0] }, $f );
+
+    return Digest::MD5::md5_hex($ops);
 }
 
 sub trace_code {
     my ($f) = @_;
     my $ops = '';
-    _trace_function( sub { $ops .= sprintf '%s=(0x%x) ', @_ }, $f );
+    _trace_function( sub { $ops .= sprintf '%s=(0x%x) ', '???', $_[0] }, $f );
     chop $ops;
 
     return $ops;
@@ -81,9 +87,12 @@ This is a generic way of tracing a function. It ensures that your
 C<TRACE> function is called before every operation in the C<FUNCTION>
 function.
 
-The C<TRACE> function will be given the L<B::OP> object that is about
-to be run. The C<TRACE> function will be called in void context and
-will not be given any parameters.
+The C<TRACE> function will be given the pointer of the opnode that is
+about to be run. This is an interim API. The desired result is that a
+B::OP object is passed instead of just the pointer. Also, it is always
+the same scalar - only the value is changing. References taken to this
+value will mutate. The C<TRACE> function will be called in void
+context.
 
 The C<FUNCTION> function will be called in void context and will not
 be given any parameters.

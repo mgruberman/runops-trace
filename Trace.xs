@@ -7,6 +7,7 @@ int (*old_runops) ( pTHX );
 OP * old_op;
 int currently_being_traced = 0;
 SV * cached_tracer_rv = (SV*)NULL;
+SV * ptr;
 
 static void
 set_tracer( pTHX_ SV *tracer_rv ) {
@@ -40,10 +41,10 @@ int runops_trace(pTHX) {
       currently_being_traced = 0;
 
       /* Hey ho, do that tracing callback */
+      sv_setuv( ptr, PTR2UV( old_op ) );
       SPAGAIN;
       PUSHMARK(SP);
-      XPUSHs( sv_2mortal( newSVpv( PL_op_name[ old_op->op_type ], 0 ) ) );
-      XPUSHs( sv_2mortal( newSVuv( PTR2UV( old_op ) ) ) );
+      XPUSHs( ptr );
       PUTBACK;
       
       call_sv( cached_tracer_rv, G_VOID | G_DISCARD );
@@ -96,3 +97,4 @@ disable_global_tracing()
 BOOT:
   old_runops = PL_runops;
   PL_runops  = runops_trace;
+  ptr = newSVuv( 0 );

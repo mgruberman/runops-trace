@@ -1,9 +1,9 @@
 --- #YAML:1.0
 name:                Runops-Trace
-version:             0.06
+version:             0.08
 abstract:            ~
 license:             ~
-generated_by:        ExtUtils::MakeMaker version 6.32
+generated_by:        ExtUtils::MakeMaker version 6.36
 distribution_type:   module
 requires:     
     Digest::MD5:                   0
