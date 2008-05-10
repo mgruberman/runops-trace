@@ -39,3 +39,6 @@
 
 0.09 - Thu Aug  2              2007
     Document requirement for 5.8.0.
+
+0.10 - Sumn May 11             2008
+    Merged in Runops::Hook

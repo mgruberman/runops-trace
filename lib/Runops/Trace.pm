@@ -1,17 +1,27 @@
 package Runops::Trace;
 
+# vim:shiftwidth=4
+
 use strict;
 use warnings;
-use Digest::MD5 ();
-use File::Spec  ();
+use Digest::MD5  ();
+use File::Spec   ();
+use Scalar::Util ();
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
 Runops::Trace->bootstrap($VERSION);
 
-our @EXPORT_OK = qw( trace_code checksum_code_path trace );
+our @EXPORT_OK = qw(
+    trace_code checksum_code_path trace
+
+    set_tracer get_tracer clear_tracer enable_tracing disable_tracing tracing_enabled
+
+    set_trace_threshold get_trace_threshold get_op_counters
+);
+
 our %EXPORT_TAGS = ( 'all' => \@EXPORT_OK );
 
 sub checksum_code_path {
@@ -24,18 +34,17 @@ sub checksum_code_path {
     sysread $nul, $ops, 2**19, 0;
 
     # Just stash the pointers.
-    _trace_function( sub { $ops .= pack 'J', $_[0] }, $f );
+    _trace_function( sub { $ops .= ${ $_[0] || return } }, $f );
 
     return Digest::MD5::md5_hex($ops);
 }
 
 sub trace_code {
     my ($f) = @_;
-    my $ops = '';
-    _trace_function( sub { $ops .= sprintf '%s=(0x%x) ', '???', $_[0] }, $f );
-    chop $ops;
+    my @ops;
+    _trace_function( sub { push @ops, $_[0] }, $f );
 
-    return $ops;
+    return wantarray ? @ops : join "\n", @ops;
 }
 
 sub trace {
@@ -43,6 +52,27 @@ sub trace {
 
     _trace_function( $tracer, $callback );
     return;
+}
+
+sub unmask_op {
+    unmask_op_type( _whatever_to_op_type(shift) );
+}
+
+sub mask_op {
+    mask_op_type( _whatever_to_op_type(shift) );
+}
+
+sub _whatever_to_op_type {
+    my $thingy = shift;
+
+    if ( ref $thingy ) {
+        return $thingy->type;
+    } elsif ( Scalar::Util::looks_like_number($thingy) ) {
+        return $thingy;
+    } else {
+        require B;
+        return B::opnumber($thingy);
+    }
 }
 
 1;
@@ -54,6 +84,8 @@ __END__
 Runops::Trace - Trace your program's execution
 
 =head1 SYNOPSIS
+
+Per function tracing:
 
   use Runops::Trace 'checksum_code_path';
   sub is_even { shift() % 2 == 0 ? 1 : 0 }
@@ -70,6 +102,8 @@ Runops::Trace - Trace your program's execution
       }
   }
   print join ' ', keys %sufficient;
+
+Global tracing
 
 =head1 DESCRIPTION
 
@@ -106,8 +140,78 @@ a nice, concise way of representing a unique path through code.
 
 =item STRING = trace_code( FUNCTION )
 
+=item ARRAY = trace_code( FUNCTION )
+
 This returns a string representing the ops that were executed. Each op
 is represented as its name and hex address in memory.
+
+If called in list context will return the list of L<B::OP> objects.
+
+=item set_tracer( FUNCTION )
+
+This sets the tracer function globally.
+
+C<trace> uses this.
+
+The code reference will be called once per op. The first argument is the
+L<B::OP> object for C<PL_op>. The second argument is the operator's arity. This
+might later be changed if arity methods are included in L<B::OP> itself. The
+remaining arguments are the arguments for the operator taken from the stack,
+depending on the operator arity.
+
+=item CODEREF = get_tracer()
+
+Get the tracing sub (if any).
+
+=item clear_tracer()
+
+Remove the tracing sub.
+
+=item enable_tracing()
+
+=item disable_tracing()
+
+Controls tracing globally.
+
+=item tracing_enabled()
+
+Returns whether or not tracing is enabled.
+
+=item set_trace_threshold( INT )
+
+=item INT = get_trace_threshold()
+
+=item HASHREF = get_op_counters()
+
+If set to a nonzero value then every opcode will be counted in a hash
+(C<get_op_counters> returns that hash).
+
+The trace function would only be triggerred after the counter for that opcode
+has reached a certain number.
+
+This is useful for when you only want to trace a certain hot path.
+
+=item mask_all()
+
+Disable tracing of all ops.
+
+=item mask_none()
+
+=item unmask_all()
+
+Enable tracing of all ops.
+
+=item mask_op( OPTYPE )
+
+=item unmask_op( OPTYPE )
+
+Change the masking of a specific op.
+
+Takes a L<B::OP> object, an op type, or an op name.
+
+=item clear_mask()
+
+Like C<mask_none> was called, but removes the mask entirely.
 
 =back
 
@@ -144,6 +248,8 @@ modify the perl program as it is running. Thi
 
 Rewritten by Joshua ben Jore, originally written by chromatic, based
 on L<Runops::Switch> by Rafael Garcia-Suarez.
+
+Merged with Runops::Hook by Chia-Liang Kao and Yuval Kogman.
 
 This program is free software; you may redistribute it and/or modify
 it under the same terms as Perl 5.8.x itself.
