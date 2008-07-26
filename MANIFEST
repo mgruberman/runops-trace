@@ -1,8 +1,10 @@
+bench.pl
 Changes
 lib/Runops/Trace.pm
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
+ppport.h
 t/01compile.t
 t/02mapstart.t
 t/03even.t
@@ -13,5 +15,6 @@ t/06counters.t
 t/07perl_Hook.t
 t/08fact.t
 t/09mask.t
+TODO
 Trace.xs
 META.yml                                 Module meta-data (added by MakeMaker)

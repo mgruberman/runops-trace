@@ -40,5 +40,11 @@
 0.09 - Thu Aug  2              2007
     Document requirement for 5.8.0.
 
-0.10 - Sumn May 11             2008
+0.10 - Sun May 11              2008
     Merged in Runops::Hook
+
+0.11 - Sat Jul 26              2008
+	opmask is now a bitfield instead of a bool array (hoping this also takes
+	care of compilation problems), and other minor tweaks.
+
+	opcode arity detection that caused a segfault fixed

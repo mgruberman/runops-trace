@@ -8,7 +8,10 @@ use Digest::MD5  ();
 use File::Spec   ();
 use Scalar::Util ();
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
+
+# load XS_B__UNOP_first
+BEGIN { require B };
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
@@ -55,11 +58,11 @@ sub trace {
 }
 
 sub unmask_op {
-    unmask_op_type( _whatever_to_op_type(shift) );
+    unmask_op_type( _whatever_to_op_type($_) ) for @_;
 }
 
 sub mask_op {
-    mask_op_type( _whatever_to_op_type(shift) );
+    mask_op_type( _whatever_to_op_type($_) ) for @_;
 }
 
 sub _whatever_to_op_type {
@@ -212,6 +215,33 @@ Takes a L<B::OP> object, an op type, or an op name.
 =item clear_mask()
 
 Like C<mask_none> was called, but removes the mask entirely.
+
+=item ARITY_NULL
+
+=item ARITY_UNARY
+
+=item ARITY_BINARY
+
+=item ARITY_LIST
+
+=item ARITY_LIST_UNARY
+
+=item ARITY_LIST_BINARY
+
+=item ARITY_UNKNOWN
+
+These constants can be used to inspect the arity paramter.
+
+Note that for C<ARITY_LIST_UNARY> (C<entersub>) and C<ARITY_LIST_BINARY>
+(C<aassign>) the arity value is the binary or of C<ARITY_LIST> and
+C<ARITY_UNARY> or C<ARITY_BINARY>. Test with C<&> or with C<==> according to
+what you are really interested in.
+
+C<ARITY_NULL> means no arguments (e.g. an C<SVOP>).
+
+Some operators do not have their arity figured out yet. Patches welcome.
+
+This should ideally become a method of L<B::OP> later.
 
 =back
 

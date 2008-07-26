@@ -4,28 +4,34 @@
 #include "embed.h"
 #include "XSUB.h"
 
+#define NEED_load_module
+#define NEED_newRV_noinc
+#define NEED_vload_module
+#include "ppport.h"
+
 #define XPUSHREF(x) XPUSHs(sv_2mortal(newRV_inc(x)))
+#define PUSHREF(x) PUSHs(sv_2mortal(newRV_inc(x)))
 
 int (*Runops_Trace_old_runops ) ( pTHX );
 
 int (*Runops_Trace_hook)(pTHX);
 
-static HV *Runops_Trace_op_counters;
+STATIC HV *Runops_Trace_op_counters;
 
-static int Runops_Trace_enabled;
-static UV Runops_Trace_threshold = 0;
+STATIC int Runops_Trace_enabled;
+STATIC UV Runops_Trace_threshold = 0;
 
-static SV *Runops_Trace_perl_hook;
-static int Runops_Trace_perl_ignore_ret = 1;
+STATIC SV *Runops_Trace_perl_hook;
+STATIC int Runops_Trace_perl_ignore_ret = 1;
 
-static int Runops_Trace_loaded_B;
-static GV *Runops_Trace_B_UNOP_stash;
-static UNOP Runops_Trace_fakeop;
-static SV *Runops_Trace_fakeop_sv;
+STATIC int Runops_Trace_loaded_B;
+STATIC GV *Runops_Trace_B_UNOP_stash;
+STATIC UNOP Runops_Trace_fakeop;
+STATIC SV *Runops_Trace_fakeop_sv;
 
-/* op_type is 9 bits wide */
-#define OPMASK_SIZE (1 << 9) - 1
-static bool *Runops_Trace_mask;
+#define MAXO_PLUS ( MAXO + 100 )
+#define MAXO_BIT_OCTETS ( ( MAXO_PLUS + 7 ) / 8 )
+STATIC char *Runops_Trace_mask;
 
 #define ARITY_NULL 0
 #define ARITY_UNARY 1
@@ -40,8 +46,8 @@ int runops_trace(pTHX)
 {
   while (PL_op) {
     if ( Runops_Trace_enabled &&
-        /* if we have a mask set, only trace unmasked ops */
-        ( !Runops_Trace_mask || Runops_Trace_mask[PL_op->op_type] )
+        ( !Runops_Trace_mask /* trace if no mask */
+          || ( Runops_Trace_mask[PL_op->op_type >> 3] & ( 1 << (PL_op->op_type & 0x07) ) ) ) /* or this op is unmasked */
        ){
 
       /* the hook may have assigned PL_op itself, in which case we just go to
@@ -71,10 +77,9 @@ Runops_Trace_disable () {
   Runops_Trace_enabled = 0;
 }
 
-SV *
+STATIC SV *
 Runops_Trace_op_to_BOP (pTHX_ OP *op) {
   dSP;
-  /* this assumes Runops_Trace_load_B() has already been called */
 
   /* we fake B::UNOP object (fakeop_sv) that points to our static fakeop.
    * then we set first_op to the op we want to make an object out of, and
@@ -89,14 +94,15 @@ Runops_Trace_op_to_BOP (pTHX_ OP *op) {
   XPUSHs(Runops_Trace_fakeop_sv);
   PUTBACK;
 
-  call_pv("B::UNOP::first", G_SCALAR);
+  /* call_pv("B::UNOP::first", G_SCALAR); */
+  XS_B__UNOP_first(aTHX);
 
   SPAGAIN;
 
   return POPs;
 }
 
-IV
+STATIC IV
 Runops_Trace_op_arity (pTHX_ OP *o) {
   switch (o->op_type) {
     case OP_SASSIGN:
@@ -108,6 +114,11 @@ Runops_Trace_op_arity (pTHX_ OP *o) {
 
     case OP_REFGEN:
       return ARITY_LIST;
+
+    case OP_LEAVELOOP: /* FIXME BASEOP_OR_UNOP */
+    case OP_ENTERITER:
+    case OP_ENTERLOOP:
+      return ARITY_NULL;
   }
 
   switch (PL_opargs[o->op_type] & OA_CLASS_MASK) {
@@ -120,7 +131,9 @@ Runops_Trace_op_arity (pTHX_ OP *o) {
       return ARITY_NULL;
 
     case OA_BASEOP_OR_UNOP:
-      return (o->op_flags & OPf_KIDS) ? ARITY_UNARY : ARITY_NULL;
+      /* FIXME gotta check gimme from context block */
+      /* return (o->op_flags & OPf_KIDS ) ? ARITY_gimme : ARITY_NULL; */
+      return ARITY_NULL;
 
     case OA_LOGOP:
     case OA_UNOP:
@@ -141,7 +154,7 @@ Runops_Trace_op_arity (pTHX_ OP *o) {
   }
 }
 
-static AV *
+STATIC AV *
 av_make_with_refs(pTHX_ SV**from, SV**to) {
   SV **i;
   AV *av = newAV();
@@ -160,8 +173,8 @@ int
 Runops_Trace_perl (pTHX) {
   dSP;
 
-  register SV **orig_sp = SP;
-  register SV **list_mark;
+  SV **orig_sp = SP;
+  SV **list_mark;
 
   SV *sv_ret;
   SV *PL_op_object;
@@ -177,13 +190,18 @@ Runops_Trace_perl (pTHX) {
      * times get hooked, the idea is that this can be used for
      * trace caching */
 
+    /* in the future this might change to a dynamically decayed bloom filter */
+
     if ( !Runops_Trace_op_counters )
       Runops_Trace_op_counters = newHV();
 
     /* unfortunately we need to keep the counters in a hash */
     count = hv_fetch(Runops_Trace_op_counters, (char *)PL_op, sizeof(PL_op), 1);
-    c  = SvTRUE(*count) ? SvUV(*count) + 1 : 1;
-    sv_setuv(*count, c);
+    if ( SvTRUE(*count) ) {
+      SvUVX(*count)++;
+    } else {
+      *count = newSVuv(1);
+    }
 
     /* if we haven't reached the threshold yet, then return */
     if (c < Runops_Trace_threshold)
@@ -202,31 +220,35 @@ Runops_Trace_perl (pTHX) {
   PL_op_object = Runops_Trace_op_to_BOP(aTHX_ PL_op);
   arity = Runops_Trace_op_arity(aTHX_ PL_op);
 
-
+  /* arguments for the sub start at this mark */
   PUSHMARK(SP);
-  /* XPUSHs(Runops_Trace_perl_hook); */
-  XPUSHs(PL_op_object);
-  XPUSHs(sv_2mortal(newSViv(arity)));
+
+  EXTEND(SP, 4); /* op obj, arity flag, unary and binary ops. ARITY_LIST will call extend for nary args */
+
+  PUSHs(PL_op_object);
+  PUSHs(sv_2mortal(newSViv(arity)));
 
   switch (arity) {
+
     case ARITY_LIST_UNARY:
       /* ENTERSUB's unary arg (the cv) is the last thing on the stack, but it has args too */
-      XPUSHREF(*orig_sp--);
+      PUSHREF(*orig_sp--);
+      /* fall through */
     case ARITY_LIST:
+      list_mark = PL_stack_base + *(PL_markstack_ptr-1) + 1;
       /* repeat stack from the op's mark to SP just before we started pushing */
-      for (list_mark = PL_stack_base + *(PL_markstack_ptr-1) + 1; list_mark <= orig_sp; list_mark++) {
-        XPUSHREF(*list_mark);
+      EXTEND(SP, orig_sp - list_mark);
+      while ( list_mark <= orig_sp ) {
+        XPUSHREF(*list_mark++);
       }
 
       break;
-
 
     case ARITY_BINARY:
       XPUSHREF(*(orig_sp-1));
     case ARITY_UNARY:
       XPUSHREF(*orig_sp);
       break;
-
 
     case ARITY_LIST_BINARY:
       {
@@ -245,7 +267,6 @@ Runops_Trace_perl (pTHX) {
         XPUSHREF(lav);
         XPUSHREF(rav);
       }
-
       break;
 
     case ARITY_NULL:
@@ -253,10 +274,9 @@ Runops_Trace_perl (pTHX) {
 
 
     default:
-      warn("Unknown arity for %s (%p)", PL_op_name[PL_op->op_type], PL_op);
+      /* warn("Unknown arity for %s (%p)", PL_op_name[PL_op->op_type], PL_op); */
       break;
   }
-
 
   PUTBACK;
 
@@ -273,7 +293,6 @@ Runops_Trace_perl (pTHX) {
   } else {
     ret = 0;
   }
-
 
   PUTBACK;
   FREETMPS;
@@ -302,11 +321,10 @@ Runops_Trace_clear_perl_hook(pTHX) {
   SvSetSV(Runops_Trace_perl_hook, &PL_sv_undef );
 }
 
-void
+STATIC void
 Runops_Trace_load_B (pTHX) {
   if (!Runops_Trace_loaded_B) {
     load_module( PERL_LOADMOD_NOIMPORT, newSVpv("B", 0), (SV *)NULL );
-    Runops_Trace_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Trace_fakeop)), gv_stashpv("B::UNOP", 0));
     Runops_Trace_loaded_B = 1;
   }
 }
@@ -320,78 +338,88 @@ Runops_Trace_set_perl_hook (pTHX_ SV *tracer_rv) {
 
   Runops_Trace_clear_perl_hook(aTHX);
 
-  Runops_Trace_load_B(aTHX);
-
   /* Initialize/set the tracing function */
   SvSetSV( Runops_Trace_perl_hook, tracer_rv );
 
   Runops_Trace_set_hook(Runops_Trace_perl);
 }
 
-UV
+STATIC UV
 Runops_Trace_get_threshold () {
   return Runops_Trace_threshold;
 }
 
-void
+STATIC void
 Runops_Trace_set_threshold (UV t) {
   Runops_Trace_threshold = t;
 }
 
-void
+STATIC void
+Runops_Trace_mask_set (bool t) {
+  if ( Runops_Trace_mask ) {
+    char *byte = Runops_Trace_mask;
+    while ( byte < Runops_Trace_mask + MAXO_BIT_OCTETS ) {
+      *byte++ = t ? 0xff : 0;
+    }
+  }
+}
+
+STATIC void
 Runops_Trace_mask_autocreate () {
   if (!Runops_Trace_mask) {
-    int i;
-    Newx(Runops_Trace_mask, OPMASK_SIZE, bool);
-    for (i = 0; i < OPMASK_SIZE; i++) {
-      Runops_Trace_mask[i] = 1;
-    }
+    I32 len = MAXO_BIT_OCTETS;
+
+    Newx(Runops_Trace_mask, MAXO_BIT_OCTETS, char);
+    Runops_Trace_mask_set(1);
   }
 }
 
+STATIC void
 Runops_Trace_mask_all () {
   if (!Runops_Trace_mask) {
-    Newxz(Runops_Trace_mask, OPMASK_SIZE, bool);
+    Newxz(Runops_Trace_mask, MAXO_BIT_OCTETS, char);
   } else {
-    int i;
-    for (i = 0; i < OPMASK_SIZE; i++) {
-      Runops_Trace_mask[i] = 0;
-    }
+    Runops_Trace_mask_set(0);
   }
 }
 
+STATIC void
 Runops_Trace_mask_none () {
   if (!Runops_Trace_mask) {
     Runops_Trace_mask_autocreate();
   } else {
-    int i;
-    for (i = 0; i < OPMASK_SIZE; i++) {
-      Runops_Trace_mask[i] = 1;
-    }
+    Runops_Trace_mask_set(1);
   }
 }
 
-void
-Runops_Trace_mask_set_op_type (unsigned op_type, bool bit) {
-  if ( op_type < OPMASK_SIZE ) {
-    Runops_Trace_mask_autocreate();
-    Runops_Trace_mask[op_type] = bit;
+STATIC void
+Runops_Trace_mask_set_op_type (I32 op_type, bool bit) {
+  if ( !Runops_Trace_mask )
+      Runops_Trace_mask_autocreate();
+  if ( op_type < MAXO_PLUS && op_type >= 0 ) {
+    const int offset = op_type >> 3;
+    const int bit    = op_type & 0x07;
+
+    if (bit)
+      Runops_Trace_mask[offset] |=   1 << bit;
+    else
+      Runops_Trace_mask[offset] &= ~(1 << bit);
   } else {
     croak("Invalid op_type %d", op_type);
   }
 }
 
-void
+STATIC void
 Runops_Trace_unmask_op_type (unsigned op_type) {
   Runops_Trace_mask_set_op_type(op_type, 1);
 }
 
-void
+STATIC void
 Runops_Trace_mask_op_type (unsigned op_type) {
   Runops_Trace_mask_set_op_type(op_type, 0);
 }
 
-void
+STATIC void
 Runops_Trace_clear_op_mask () {
   Safefree(Runops_Trace_mask);
   Runops_Trace_mask = NULL;
@@ -402,6 +430,7 @@ MODULE = Runops::Trace PACKAGE = Runops::Trace
 PROTOTYPES: ENABLE
 
 BOOT:
+  Runops_Trace_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Trace_fakeop)), gv_stashpv("B::UNOP", 0));
   Runops_Trace_clear_hook();
   Runops_Trace_old_runops = PL_runops;
   PL_runops = runops_trace;

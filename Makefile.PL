@@ -5,6 +5,6 @@ use strict;
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-    NAME		=> 'Runops::Trace',
-    VERSION_FROM	=> 'lib/Runops/Trace.pm',
+  NAME		=> 'Runops::Trace',
+  VERSION_FROM	=> 'lib/Runops/Trace.pm',
 );
