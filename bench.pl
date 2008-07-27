@@ -24,48 +24,56 @@ sub waste_time {
 
 my %setup = (
 	normal => sub {
-		warn "not reg" if $INC{"Runops/Trace.pm"},
+		warn "not reg runloop, skipping" if $INC{"Runops/Trace.pm"};
+        return;
 	},
 	disabled => sub {
-		require Runops::Trace;
 		Runops::Trace::disable_tracing();
+        return 1;
 	},
 	null_c_cb => sub {
-		require Runops::Trace;
 		Runops::Trace::clear_tracer();
 		Runops::Trace::enable_tracing();
+        return 1;
+	},
+	mask_null_c_cb => sub {
+		Runops::Trace::mask_all();
+		Runops::Trace::unmask_op(qw(entersub method_named));
+		Runops::Trace::clear_tracer();
+		Runops::Trace::enable_tracing();
+        return 1;
 	},
 	mask => sub {
-		require Runops::Trace;
 		Runops::Trace::set_trace_threshold(0);
 		Runops::Trace::mask_all();
 		Runops::Trace::unmask_op(qw(entersub method_named));
 		Runops::Trace::set_tracer(sub { our $j++ });
 		Runops::Trace::enable_tracing();
+        return 1;
 	},
 	threshold => sub {
-		require Runops::Trace;
 		Runops::Trace::clear_mask();
 		Runops::Trace::set_trace_threshold(5);
 		Runops::Trace::mask_op(qw(enteriter enterloop));
 		Runops::Trace::set_tracer(sub { our $j++ });
 		Runops::Trace::enable_tracing();
+        return 1;
 	},
 	mask_and_threshold => sub {
-		require Runops::Trace;
 		Runops::Trace::set_trace_threshold(5);
 		Runops::Trace::mask_all();
 		Runops::Trace::unmask_op(qw(entersub refgen method_named));
 		Runops::Trace::set_tracer(sub {our $j++ });
 		Runops::Trace::enable_tracing();
+        return 1;
 	},
 	perl_hook => sub {
-		require Runops::Trace;
 		Runops::Trace::clear_mask();
 		Runops::Trace::mask_op(qw(enteriter enterloop));
 		Runops::Trace::set_trace_threshold(0);
 		Runops::Trace::set_tracer(sub { our $j++ });
 		Runops::Trace::enable_tracing();
+        return 1;
 	},
 );
 
@@ -73,8 +81,8 @@ my %res;
 
 waste_time();
 
-foreach my $test qw(normal disabled null_c_cb mask threshold mask_and_threshold perl_hook) {
-    $setup{$test}->();
+foreach my $test qw(normal disabled null_c_cb mask_null_c_cb mask threshold mask_and_threshold perl_hook) {
+    $setup{$test}->() || next;
     our $j = undef;
 
     eval {

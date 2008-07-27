@@ -25,6 +25,9 @@ STATIC SV *Runops_Trace_perl_hook;
 STATIC int Runops_Trace_perl_ignore_ret = 1;
 
 STATIC int Runops_Trace_loaded_B;
+STATIC CV *Runops_Trace_B_UNOP_first;
+STATIC XSUBADDR_t Runops_Trace_B_UNOP_first_xsub;
+
 STATIC GV *Runops_Trace_B_UNOP_stash;
 STATIC UNOP Runops_Trace_fakeop;
 STATIC SV *Runops_Trace_fakeop_sv;
@@ -95,7 +98,10 @@ Runops_Trace_op_to_BOP (pTHX_ OP *op) {
   PUTBACK;
 
   /* call_pv("B::UNOP::first", G_SCALAR); */
-  XS_B__UNOP_first(aTHX);
+  assert(Runops_Trace_loaded_B);
+  assert(Runops_Trace_B_UNOP_first);
+  assert(Runops_Trace_B_UNOP_first_xsub != NULL);
+  Runops_Trace_B_UNOP_first_xsub(aTHX, Runops_Trace_B_UNOP_first);
 
   SPAGAIN;
 
@@ -325,6 +331,12 @@ STATIC void
 Runops_Trace_load_B (pTHX) {
   if (!Runops_Trace_loaded_B) {
     load_module( PERL_LOADMOD_NOIMPORT, newSVpv("B", 0), (SV *)NULL );
+
+    Runops_Trace_B_UNOP_first = get_cv("B::UNOP::first", TRUE);
+    Runops_Trace_B_UNOP_first_xsub = CvXSUB(Runops_Trace_B_UNOP_first);
+
+    Runops_Trace_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Trace_fakeop)), gv_stashpv("B::UNOP", 0));
+
     Runops_Trace_loaded_B = 1;
   }
 }
@@ -335,6 +347,8 @@ Runops_Trace_set_perl_hook (pTHX_ SV *tracer_rv) {
   if ( ! SvROK( tracer_rv ) ||  ! SVt_PVCV == SvTYPE( SvRV( tracer_rv ) ) ) {
     croak("the hook must be a code reference");
   }
+
+  Runops_Trace_load_B(aTHX);
 
   Runops_Trace_clear_perl_hook(aTHX);
 
@@ -430,7 +444,6 @@ MODULE = Runops::Trace PACKAGE = Runops::Trace
 PROTOTYPES: ENABLE
 
 BOOT:
-  Runops_Trace_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Trace_fakeop)), gv_stashpv("B::UNOP", 0));
   Runops_Trace_clear_hook();
   Runops_Trace_old_runops = PL_runops;
   PL_runops = runops_trace;

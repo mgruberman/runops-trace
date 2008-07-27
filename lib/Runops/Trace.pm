@@ -8,10 +8,7 @@ use Digest::MD5  ();
 use File::Spec   ();
 use Scalar::Util ();
 
-our $VERSION = '0.11';
-
-# load XS_B__UNOP_first
-BEGIN { require B };
+our $VERSION = '0.12';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );

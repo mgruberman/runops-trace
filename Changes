@@ -44,7 +44,10 @@
     Merged in Runops::Hook
 
 0.11 - Sat Jul 26              2008
-	opmask is now a bitfield instead of a bool array (hoping this also takes
-	care of compilation problems), and other minor tweaks.
+    opmask is now a bitfield instead of a bool array (hoping this also takes
+    care of compilation problems), and other minor tweaks.
 
-	opcode arity detection that caused a segfault fixed
+    opcode arity detection that caused a segfault fixed
+
+0.12 - Sun Jul 27              2008
+    Get B::UNOP::first in a well behaved manner
