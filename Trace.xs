@@ -101,7 +101,7 @@ Runops_Trace_op_to_BOP (pTHX_ OP *op) {
   assert(Runops_Trace_loaded_B);
   assert(Runops_Trace_B_UNOP_first);
   assert(Runops_Trace_B_UNOP_first_xsub != NULL);
-  Runops_Trace_B_UNOP_first_xsub(aTHX, Runops_Trace_B_UNOP_first);
+  Runops_Trace_B_UNOP_first_xsub(aTHX_ Runops_Trace_B_UNOP_first);
 
   SPAGAIN;
 

@@ -51,3 +51,6 @@
 
 0.12 - Sun Jul 27              2008
     Get B::UNOP::first in a well behaved manner
+
+0.12 - Tue Nov 11              2208
+    Fixed a compilation error for unthreaded perl

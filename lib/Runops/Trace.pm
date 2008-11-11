@@ -8,7 +8,7 @@ use Digest::MD5  ();
 use File::Spec   ();
 use Scalar::Util ();
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 use DynaLoader ();
 our @ISA = qw( DynaLoader Exporter );
