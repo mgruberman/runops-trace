@@ -165,10 +165,13 @@ av_make_with_refs(pTHX_ SV**from, SV**to) {
   SV **i;
   AV *av = newAV();
 
-  av_extend(av, (to - from) / sizeof(SV **));
+  /* Bug #64830 */
+  if (to > from) {
+    av_extend(av, (to - from) / sizeof(SV **));
 
-  for (i = from; i <= to; i++) {
-    av_push(av, newRV_inc(*i));
+    for (i = from; i <= to; i++) {
+      av_push(av, newRV_inc(*i));
+    }
   }
 
   return av;

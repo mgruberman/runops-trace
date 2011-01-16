@@ -52,5 +52,8 @@
 0.12 - Sun Jul 27              2008
     Get B::UNOP::first in a well behaved manner
 
-0.12 - Tue Nov 11              2208
+0.13 - Tue Nov 11              2008
     Fixed a compilation error for unthreaded perl
+
+... - Sun Jan 16              2010
+    Fixed "Out of memory during array extend" for aassign
