@@ -1,4 +1,5 @@
 package Runops::Trace;
+# ABSTRACT: Trace your program's execution
 
 # vim:shiftwidth=4
 
@@ -78,10 +79,6 @@ sub _whatever_to_op_type {
 1;
 
 __END__
-
-=head1 NAME
-
-Runops::Trace - Trace your program's execution
 
 =head1 SYNOPSIS
 

@@ -58,3 +58,4 @@
 ... - Sun Jan 16              2010
     Fixed "Out of memory during array extend" for aassign
     Add .gitignore
+    Build with Dist::Zilla
